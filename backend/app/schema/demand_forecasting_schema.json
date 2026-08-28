@@ -1,0 +1,446 @@
+{
+  "tables": [
+    {
+      "TableName": "Category",
+      "Purpose": "Master list of product categories used to group SKUs for reporting and planning",
+      "DataType": "Master_Category",
+      "DefaultDateColumn": null,
+      "Tags": ["Master Data", "Product", "Category"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "RestrictedRoles": [],
+      "columns": [
+        { "ColumnName": "CategoryId", "Description": "Unique identifier for the category", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "CategoryName", "Description": "Name of the product category (e.g. Beverages, Apparel)", "Tags": ["Name"] },
+        { "ColumnName": "IsActive", "Description": "Indicates active category", "Tags": ["Filter"] },
+        { "ColumnName": "IsDeleted", "Description": "Indicates deleted category", "Tags": ["Filter"] }
+      ],
+      "PrimaryKey": "CategoryId",
+      "BusinessRules": [
+        "Always filter active categories -> IsActive = 1 AND IsDeleted = 0",
+        "This is a master table, do not use for demand or forecast calculations",
+        "Join with Product using CategoryId to get category name for a SKU"
+      ],
+      "Synonyms": ["category", "product category", "product group", "department"]
+    },
+    {
+      "TableName": "Product",
+      "Purpose": "Master list of SKUs/products sold and forecasted across the business",
+      "DataType": "Master_Product",
+      "DefaultDateColumn": "CreatedDate",
+      "Tags": ["Master Data", "Product", "SKU"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "RestrictedRoles": [],
+      "columns": [
+        { "ColumnName": "ProductId", "Description": "Unique identifier for the product", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "SKU", "Description": "Stock keeping unit code", "Tags": ["Identifier", "SKU"] },
+        { "ColumnName": "ProductName", "Description": "Display name of the product", "Tags": ["Name"] },
+        { "ColumnName": "CategoryId", "Description": "Category the product belongs to", "ForeignKey": { "Table": "Category", "Column": "CategoryId" }, "Tags": ["Join Key", "Category"] },
+        { "ColumnName": "Brand", "Description": "Brand name of the product", "Tags": ["Classification"] },
+        { "ColumnName": "UnitOfMeasure", "Description": "Unit the product is sold/forecasted in (e.g. EA, CASE)", "Tags": ["UOM"] },
+        { "ColumnName": "UnitPrice", "Description": "Standard selling price per unit", "Tags": ["Reference Price"], "Warning": "Do not use for revenue reporting, use SalesHistory.Revenue instead" },
+        { "ColumnName": "LaunchDate", "Description": "Date the product was first launched", "Tags": ["Date"] },
+        { "ColumnName": "IsActive", "Description": "Indicates active/sellable product", "Tags": ["Filter"] },
+        { "ColumnName": "IsDeleted", "Description": "Indicates deleted/discontinued product", "Tags": ["Filter"] },
+        { "ColumnName": "CreatedDate", "Description": "Date the product master record was created", "Tags": ["Audit", "Date Filter"] }
+      ],
+      "PrimaryKey": "ProductId",
+      "BusinessRules": [
+        "Always filter active products -> IsActive = 1 AND IsDeleted = 0 unless the user explicitly asks for discontinued/inactive products",
+        "This is a master table, do not calculate demand, revenue, or forecast values from this table alone",
+        "Join with SalesHistory using ProductId for actual demand/revenue",
+        "Join with ForecastDetail using ProductId for forecasted demand",
+        "Join with Category using CategoryId to resolve category name",
+        "A product recently launched (LaunchDate within the last 90 days) has limited sales history; treat forecasts for it cautiously"
+      ],
+      "Synonyms": ["product", "sku", "item", "products", "skus"]
+    },
+    {
+      "TableName": "Location",
+      "Purpose": "Master list of distribution centers, stores, and regions demand is tracked and forecasted for",
+      "DataType": "Master_Location",
+      "DefaultDateColumn": null,
+      "Tags": ["Master Data", "Location", "Network"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "RestrictedRoles": [],
+      "columns": [
+        { "ColumnName": "LocationId", "Description": "Unique identifier for the location", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "LocationName", "Description": "Display name of the location", "Tags": ["Name"] },
+        { "ColumnName": "LocationType", "Description": "Type of location: DC (distribution center), Store, or Region", "Tags": ["Type"] },
+        { "ColumnName": "Region", "Description": "Sales/supply region the location belongs to", "Tags": ["Region"] },
+        { "ColumnName": "City", "Description": "City of the location", "Tags": ["Geography"] },
+        { "ColumnName": "IsActive", "Description": "Indicates active location", "Tags": ["Filter"] },
+        { "ColumnName": "IsDeleted", "Description": "Indicates deleted/closed location", "Tags": ["Filter"] }
+      ],
+      "PrimaryKey": "LocationId",
+      "BusinessRules": [
+        "Always filter active locations -> IsActive = 1 AND IsDeleted = 0",
+        "Use Region to aggregate demand/forecast/inventory across multiple locations",
+        "This is a master table, do not use for demand or forecast calculations directly"
+      ],
+      "Synonyms": ["location", "store", "warehouse", "distribution center", "dc", "region", "site"]
+    },
+    {
+      "TableName": "Channel",
+      "Purpose": "Master list of sales channels demand is tracked through",
+      "DataType": "Master_Channel",
+      "DefaultDateColumn": null,
+      "Tags": ["Master Data", "Channel"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "RestrictedRoles": [],
+      "columns": [
+        { "ColumnName": "ChannelId", "Description": "Unique identifier for the channel", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ChannelName", "Description": "Name of the sales channel (Retail, Online, Wholesale)", "Tags": ["Name"] },
+        { "ColumnName": "IsActive", "Description": "Indicates active channel", "Tags": ["Filter"] },
+        { "ColumnName": "IsDeleted", "Description": "Indicates deleted channel", "Tags": ["Filter"] }
+      ],
+      "PrimaryKey": "ChannelId",
+      "BusinessRules": [
+        "Always filter active channels -> IsActive = 1 AND IsDeleted = 0",
+        "Join with SalesHistory using ChannelId to break demand down by channel"
+      ],
+      "Synonyms": ["channel", "sales channel", "online", "retail", "wholesale"]
+    },
+    {
+      "TableName": "UserRoles",
+      "Purpose": "System roles used for access control across the planning platform",
+      "DataType": "Master_Roles",
+      "DefaultDateColumn": null,
+      "Tags": ["Security", "Access Control", "Roles"],
+      "AllowedRoles": ["Admin"],
+      "RestrictedRoles": ["Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "columns": [
+        { "ColumnName": "RoleID", "Description": "Unique identifier for role. Admin = 1, Demand Planner = 2, Supply Planner = 3, Category Manager = 4, Analyst = 5, Executive = 6", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "RoleName", "Description": "Internal role name", "Tags": ["Role"] },
+        { "ColumnName": "IsActive", "Description": "Indicates active role", "Tags": ["Filter"] },
+        { "ColumnName": "IsDeleted", "Description": "Indicates deleted role", "Tags": ["Filter"] }
+      ],
+      "PrimaryKey": "RoleID",
+      "BusinessRules": [
+        "Always filter active roles -> IsActive = 1 AND IsDeleted = 0",
+        "This table describes internal access control; only Admin should query it directly"
+      ],
+      "Synonyms": ["roles", "user roles", "permissions", "access roles"]
+    },
+    {
+      "TableName": "Staffs",
+      "Purpose": "Platform users: demand planners, supply planners, category managers, analysts, and admins",
+      "DataType": "Master_Staff",
+      "DefaultDateColumn": "CreatedDate",
+      "Tags": ["Staff", "Planner", "Master Data"],
+      "AllowedRoles": ["Admin"],
+      "RestrictedRoles": ["Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "columns": [
+        { "ColumnName": "StaffId", "Description": "Unique identifier for the staff/planner", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "FirstName", "Description": "First name", "Tags": ["Name"] },
+        { "ColumnName": "LastName", "Description": "Last name", "Tags": ["Name"] },
+        { "ColumnName": "RoleID", "Description": "Role of the staff member", "ForeignKey": { "Table": "UserRoles", "Column": "RoleID" }, "Tags": ["Role", "Join Key"] },
+        { "ColumnName": "Region", "Description": "Region the planner is primarily responsible for", "Tags": ["Region"] },
+        { "ColumnName": "Email", "Description": "Email address", "Tags": ["Contact"] },
+        { "ColumnName": "IsActive", "Description": "Indicates active staff member", "Tags": ["Filter"] },
+        { "ColumnName": "IsDeleted", "Description": "Indicates deleted staff member", "Tags": ["Filter"] },
+        { "ColumnName": "CreatedDate", "Description": "Date the staff record was created", "Tags": ["Audit"] }
+      ],
+      "PrimaryKey": "StaffId",
+      "BusinessRules": [
+        "Always filter active staff -> IsActive = 1 AND IsDeleted = 0",
+        "Join with UserRoles using RoleID to resolve role name",
+        "Only Admin role may query this table directly; other roles asking about staff/user data should be told they are not authorised"
+      ],
+      "Synonyms": ["staff", "planner", "planners", "user", "users", "employee"]
+    },
+    {
+      "TableName": "SalesHistory",
+      "Purpose": "Actual historical demand (units sold and revenue) per product, location, and channel. The single source of truth for actual demand.",
+      "DataType": "Demand_Actual",
+      "DefaultDateColumn": "SaleDate",
+      "TimeFilterColumn": "SaleDate",
+      "Tags": ["Demand", "Sales", "Revenue", "Actual", "Transaction"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "RestrictedRoles": [],
+      "columns": [
+        { "ColumnName": "SalesHistoryId", "Description": "Unique identifier for the sales record", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ProductId", "Description": "Product sold", "ForeignKey": { "Table": "Product", "Column": "ProductId" }, "Tags": ["Join Key", "Product"] },
+        { "ColumnName": "LocationId", "Description": "Location the sale occurred at", "ForeignKey": { "Table": "Location", "Column": "LocationId" }, "Tags": ["Join Key", "Location"] },
+        { "ColumnName": "ChannelId", "Description": "Channel the sale occurred through", "ForeignKey": { "Table": "Channel", "Column": "ChannelId" }, "Tags": ["Join Key", "Channel"] },
+        { "ColumnName": "SaleDate", "Description": "Date of the sale / actual demand observation", "Tags": ["Date Filter", "Primary Time"] },
+        { "ColumnName": "QuantitySold", "Description": "Units sold (actual demand)", "Tags": ["Demand", "Quantity"], "FormulaHint": "Total Demand = SUM(QuantitySold)" },
+        { "ColumnName": "UnitPrice", "Description": "Price per unit at time of sale", "Tags": ["Price"] },
+        { "ColumnName": "Revenue", "Description": "Total revenue for this sale (QuantitySold * UnitPrice, already computed and stored)", "Tags": ["Revenue", "Money"], "FormulaHint": "Total Revenue = SUM(Revenue)" },
+        { "ColumnName": "IsPromotion", "Description": "Indicates the sale happened during an active promotion", "Tags": ["Promotion Flag"] },
+        { "ColumnName": "CreatedDate", "Description": "Record creation date", "Tags": ["Audit"] }
+      ],
+      "PrimaryKey": "SalesHistoryId",
+      "BusinessRules": [
+        "This table is the ONLY source of actual demand and actual revenue",
+        "Do NOT use ForecastDetail.ForecastedQuantity as actual demand",
+        "Total Demand = SUM(QuantitySold), Total Revenue = SUM(Revenue)",
+        "Use SaleDate for all time-based filtering (today/this week/this month/this year)",
+        "To break demand down by category, join Product then Category",
+        "To break demand down by region, join Location",
+        "IsPromotion = 1 rows should be included in totals unless the user explicitly asks for non-promotional/baseline demand"
+      ],
+      "Synonyms": ["sales", "demand", "actual demand", "sales history", "units sold", "revenue"]
+    },
+    {
+      "TableName": "Promotion",
+      "Purpose": "Promotional calendar for products, used to explain demand spikes and plan promotional uplift",
+      "DataType": "Promotion_Calendar",
+      "DefaultDateColumn": "StartDate",
+      "TimeFilterColumn": "StartDate",
+      "Tags": ["Promotion", "Marketing", "Calendar"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Category Manager", "Analyst", "Executive"],
+      "RestrictedRoles": ["Supply Planner"],
+      "columns": [
+        { "ColumnName": "PromotionId", "Description": "Unique identifier for the promotion", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ProductId", "Description": "Product on promotion", "ForeignKey": { "Table": "Product", "Column": "ProductId" }, "Tags": ["Join Key", "Product"] },
+        { "ColumnName": "PromotionName", "Description": "Name/description of the promotion", "Tags": ["Name"] },
+        { "ColumnName": "StartDate", "Description": "Promotion start date", "Tags": ["Date Filter"] },
+        { "ColumnName": "EndDate", "Description": "Promotion end date", "Tags": ["Date Filter"] },
+        { "ColumnName": "DiscountPercent", "Description": "Discount percentage applied during the promotion", "Tags": ["Discount"] },
+        { "ColumnName": "PromotionType", "Description": "Type of promotion (Discount, BOGO, Bundle, Clearance)", "Tags": ["Type"] },
+        { "ColumnName": "IsActive", "Description": "Indicates active promotion", "Tags": ["Filter"] },
+        { "ColumnName": "IsDeleted", "Description": "Indicates deleted/cancelled promotion", "Tags": ["Filter"] }
+      ],
+      "PrimaryKey": "PromotionId",
+      "BusinessRules": [
+        "A promotion is 'currently active' when today's date is between StartDate and EndDate inclusive AND IsActive = 1 AND IsDeleted = 0",
+        "Join with SalesHistory using ProductId and a date range overlap to analyse promotional uplift",
+        "Do not use this table for revenue or demand totals directly, use SalesHistory"
+      ],
+      "Synonyms": ["promotion", "promo", "discount", "sale event", "campaign"]
+    },
+    {
+      "TableName": "Inventory",
+      "Purpose": "Current on-hand and in-transit stock levels per product and location, used for stockout/overstock risk analysis",
+      "DataType": "Inventory_Snapshot",
+      "DefaultDateColumn": "LastUpdated",
+      "TimeFilterColumn": "LastUpdated",
+      "Tags": ["Inventory", "Stock", "Supply"],
+      "AllowedRoles": ["Admin", "Supply Planner", "Demand Planner", "Category Manager", "Executive"],
+      "RestrictedRoles": ["Analyst"],
+      "columns": [
+        { "ColumnName": "InventoryId", "Description": "Unique identifier for the inventory record", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ProductId", "Description": "Product this stock level is for", "ForeignKey": { "Table": "Product", "Column": "ProductId" }, "Tags": ["Join Key", "Product"] },
+        { "ColumnName": "LocationId", "Description": "Location this stock level is at", "ForeignKey": { "Table": "Location", "Column": "LocationId" }, "Tags": ["Join Key", "Location"] },
+        { "ColumnName": "OnHandQuantity", "Description": "Units currently on hand at this location", "Tags": ["Stock", "Critical"] },
+        { "ColumnName": "InTransitQuantity", "Description": "Units currently in transit to this location", "Tags": ["Stock"] },
+        { "ColumnName": "SafetyStock", "Description": "Minimum stock level the location should maintain", "Tags": ["Threshold"], "FormulaHint": "Stockout risk = OnHandQuantity < SafetyStock" },
+        { "ColumnName": "ReorderPoint", "Description": "Stock level at which a replenishment order should be triggered", "Tags": ["Threshold"] },
+        { "ColumnName": "LastUpdated", "Description": "When this stock snapshot was last refreshed", "Tags": ["Date Filter", "Audit"] }
+      ],
+      "PrimaryKey": "InventoryId",
+      "BusinessRules": [
+        "Stockout risk / understocked = OnHandQuantity < SafetyStock",
+        "Needs reorder = (OnHandQuantity + InTransitQuantity) <= ReorderPoint",
+        "Overstocked = OnHandQuantity > ReorderPoint * 3",
+        "This table is a current snapshot, not a time series; do not sum OnHandQuantity across dates",
+        "Join with Product and Location to get names"
+      ],
+      "Synonyms": ["inventory", "stock", "on hand", "stock level", "warehouse stock"]
+    },
+    {
+      "TableName": "DemandPatternClassification",
+      "Purpose": "Classifies each product's demand pattern (smooth, erratic, intermittent, lumpy, seasonal, trending, new launch) to guide which forecasting method is appropriate",
+      "DataType": "Demand_Pattern_Taxonomy",
+      "DefaultDateColumn": "ClassifiedDate",
+      "TimeFilterColumn": "ClassifiedDate",
+      "Tags": ["Demand Pattern", "Taxonomy", "Classification", "Analytics"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Analyst", "Category Manager", "Executive"],
+      "RestrictedRoles": ["Supply Planner"],
+      "columns": [
+        { "ColumnName": "ClassificationId", "Description": "Unique identifier for the classification record", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ProductId", "Description": "Product being classified", "ForeignKey": { "Table": "Product", "Column": "ProductId" }, "Tags": ["Join Key", "Product"] },
+        { "ColumnName": "LocationId", "Description": "Location the classification applies to (nullable = classified globally across all locations)", "ForeignKey": { "Table": "Location", "Column": "LocationId" }, "Tags": ["Join Key", "Location"] },
+        { "ColumnName": "PatternType", "Description": "Demand pattern category: Smooth, Erratic, Intermittent, Lumpy, Seasonal, Trend, or New Launch", "Tags": ["Pattern"] },
+        { "ColumnName": "ADI", "Description": "Average Demand Interval - average number of periods between non-zero demand observations", "Tags": ["Metric"] },
+        { "ColumnName": "CV2", "Description": "Squared coefficient of variation of demand size, used with ADI to derive PatternType (Syntetos-Boylan classification)", "Tags": ["Metric"] },
+        { "ColumnName": "ClassifiedDate", "Description": "Date this classification was computed", "Tags": ["Date Filter"] }
+      ],
+      "PrimaryKey": "ClassificationId",
+      "BusinessRules": [
+        "PatternType is precomputed; do not attempt to recompute ADI/CV2 from SalesHistory unless explicitly asked to derive it",
+        "When LocationId IS NULL the classification applies to the product globally across all locations",
+        "Use the most recent ClassifiedDate per product when a product has been reclassified over time"
+      ],
+      "Synonyms": ["demand pattern", "demand classification", "demand taxonomy", "intermittent demand", "erratic demand", "lumpy demand", "adi", "cv2"]
+    },
+    {
+      "TableName": "ForecastRun",
+      "Purpose": "Metadata for a single forecasting job/run: which model was used, when it ran, and its status",
+      "DataType": "Forecast_Run_Header",
+      "DefaultDateColumn": "RunDate",
+      "TimeFilterColumn": "RunDate",
+      "Tags": ["Forecast", "Model Run", "Header"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Analyst", "Category Manager", "Executive"],
+      "RestrictedRoles": ["Supply Planner"],
+      "columns": [
+        { "ColumnName": "ForecastRunId", "Description": "Unique identifier for the forecast run", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "RunName", "Description": "Human-readable name for the run", "Tags": ["Name"] },
+        { "ColumnName": "ModelName", "Description": "Forecasting model/algorithm used (e.g. ARIMA, Prophet, ETS, LSTM, Moving Average)", "Tags": ["Model"] },
+        { "ColumnName": "RunDate", "Description": "Date/time the forecast run was executed", "Tags": ["Date Filter"] },
+        { "ColumnName": "ForecastHorizonDays", "Description": "Number of days into the future this run forecasts", "Tags": ["Horizon"] },
+        { "ColumnName": "Status", "Description": "Run status: Completed, Failed, or Running", "Tags": ["Status"] },
+        { "ColumnName": "CreatedBy", "Description": "Staff member who triggered the run", "ForeignKey": { "Table": "Staffs", "Column": "StaffId" }, "Tags": ["Join Key"] },
+        { "ColumnName": "CreatedDate", "Description": "Record creation date", "Tags": ["Audit"] }
+      ],
+      "PrimaryKey": "ForecastRunId",
+      "BusinessRules": [
+        "'Latest forecast run' = the row with MAX(RunDate) WHERE Status = 'Completed'",
+        "Only Status = 'Completed' runs should be used for reporting forecasted numbers unless the user asks about run health/failures",
+        "Join with ForecastDetail using ForecastRunId to get per-product forecasted quantities",
+        "Join with ForecastAccuracy using ForecastRunId to get accuracy metrics for that run"
+      ],
+      "Synonyms": ["forecast run", "forecast job", "model run", "forecasting model"]
+    },
+    {
+      "TableName": "ForecastDetail",
+      "Purpose": "Per-product, per-location forecasted demand for future periods, produced by a ForecastRun",
+      "DataType": "Forecast_Detail",
+      "DefaultDateColumn": "ForecastDate",
+      "TimeFilterColumn": "ForecastDate",
+      "Tags": ["Forecast", "Demand", "Prediction"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Supply Planner", "Category Manager", "Analyst", "Executive"],
+      "RestrictedRoles": [],
+      "columns": [
+        { "ColumnName": "ForecastDetailId", "Description": "Unique identifier for the forecast detail row", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ForecastRunId", "Description": "The run that produced this forecast", "ForeignKey": { "Table": "ForecastRun", "Column": "ForecastRunId" }, "Tags": ["Join Key"] },
+        { "ColumnName": "ProductId", "Description": "Product being forecasted", "ForeignKey": { "Table": "Product", "Column": "ProductId" }, "Tags": ["Join Key", "Product"] },
+        { "ColumnName": "LocationId", "Description": "Location being forecasted", "ForeignKey": { "Table": "Location", "Column": "LocationId" }, "Tags": ["Join Key", "Location"] },
+        { "ColumnName": "ForecastDate", "Description": "The future period this forecast is for", "Tags": ["Date Filter"] },
+        { "ColumnName": "ForecastedQuantity", "Description": "Predicted demand for this product/location/period", "Tags": ["Forecast", "Quantity"], "Warning": "This is a PREDICTION, never present it as actual demand" },
+        { "ColumnName": "LowerBound", "Description": "Lower bound of the forecast confidence interval", "Tags": ["Confidence Interval"] },
+        { "ColumnName": "UpperBound", "Description": "Upper bound of the forecast confidence interval", "Tags": ["Confidence Interval"] },
+        { "ColumnName": "ConfidenceLevel", "Description": "Confidence level of the interval, e.g. 0.95 for 95%", "Tags": ["Confidence Interval"] }
+      ],
+      "PrimaryKey": "ForecastDetailId",
+      "BusinessRules": [
+        "Always scope ForecastDetail queries to a specific ForecastRunId (default to the latest completed run per RULE ForecastRun) unless the user names a different run",
+        "Never sum ForecastedQuantity across multiple different ForecastRunId values for the same product/period, this double counts",
+        "Do NOT use this table to answer questions about actual/historical demand, use SalesHistory instead"
+      ],
+      "Synonyms": ["forecast", "demand forecast", "predicted demand", "forecasted quantity", "prediction"]
+    },
+    {
+      "TableName": "ForecastAccuracy",
+      "Purpose": "Precomputed comparison of forecasted vs actual demand once a forecasted period has occurred, including error metrics",
+      "DataType": "Forecast_Accuracy",
+      "DefaultDateColumn": "PeriodDate",
+      "TimeFilterColumn": "PeriodDate",
+      "Tags": ["Forecast", "Accuracy", "MAPE", "Bias", "Metric"],
+      "AllowedRoles": ["Admin", "Demand Planner", "Analyst", "Category Manager", "Executive"],
+      "RestrictedRoles": ["Supply Planner"],
+      "columns": [
+        { "ColumnName": "ForecastAccuracyId", "Description": "Unique identifier for the accuracy record", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ForecastRunId", "Description": "The forecast run being evaluated", "ForeignKey": { "Table": "ForecastRun", "Column": "ForecastRunId" }, "Tags": ["Join Key"] },
+        { "ColumnName": "ProductId", "Description": "Product being evaluated", "ForeignKey": { "Table": "Product", "Column": "ProductId" }, "Tags": ["Join Key", "Product"] },
+        { "ColumnName": "LocationId", "Description": "Location being evaluated", "ForeignKey": { "Table": "Location", "Column": "LocationId" }, "Tags": ["Join Key", "Location"] },
+        { "ColumnName": "PeriodDate", "Description": "The historical period this accuracy measurement covers", "Tags": ["Date Filter"] },
+        { "ColumnName": "ForecastedQuantity", "Description": "What was forecasted for this period", "Tags": ["Forecast"] },
+        { "ColumnName": "ActualQuantity", "Description": "What actually happened (sourced from SalesHistory) for this period", "Tags": ["Actual"] },
+        { "ColumnName": "AbsoluteError", "Description": "abs(ForecastedQuantity - ActualQuantity)", "Tags": ["Error Metric"] },
+        { "ColumnName": "MAPE", "Description": "Mean Absolute Percentage Error for this product/period, as a percentage (e.g. 12.5 = 12.5%)", "Tags": ["Error Metric"], "FormulaHint": "Forecast Accuracy = AVG(MAPE), lower is better" },
+        { "ColumnName": "Bias", "Description": "Signed average error; positive = systematically over-forecasting, negative = systematically under-forecasting", "Tags": ["Error Metric"] }
+      ],
+      "PrimaryKey": "ForecastAccuracyId",
+      "BusinessRules": [
+        "This table is precomputed; NEVER manually recompute MAPE by joining ForecastDetail and SalesHistory row by row, always read MAPE/AbsoluteError/Bias directly from this table",
+        "'Forecast accuracy' or 'MAPE' questions -> AVG(MAPE) grouped as requested (by product/category/region/run)",
+        "Lower MAPE = more accurate. 'Worst forecast accuracy' = highest MAPE. 'Best forecast accuracy' = lowest MAPE",
+        "'Over-forecasting' = positive Bias, 'under-forecasting' = negative Bias",
+        "Filter by ForecastRunId to compare accuracy across specific runs/models"
+      ],
+      "Synonyms": ["forecast accuracy", "mape", "forecast error", "bias", "forecast performance"]
+    },
+    {
+      "TableName": "ReplenishmentOrder",
+      "Purpose": "Supply orders placed to replenish stock at a location based on demand forecasts and inventory position",
+      "DataType": "Supply_Order",
+      "DefaultDateColumn": "OrderDate",
+      "TimeFilterColumn": "OrderDate",
+      "Tags": ["Supply", "Replenishment", "Order"],
+      "AllowedRoles": ["Admin", "Supply Planner", "Demand Planner", "Executive"],
+      "RestrictedRoles": ["Category Manager", "Analyst"],
+      "columns": [
+        { "ColumnName": "OrderId", "Description": "Unique identifier for the replenishment order", "Tags": ["Primary Key", "Identifier"] },
+        { "ColumnName": "ProductId", "Description": "Product being ordered", "ForeignKey": { "Table": "Product", "Column": "ProductId" }, "Tags": ["Join Key", "Product"] },
+        { "ColumnName": "LocationId", "Description": "Location the order is for", "ForeignKey": { "Table": "Location", "Column": "LocationId" }, "Tags": ["Join Key", "Location"] },
+        { "ColumnName": "OrderDate", "Description": "Date the order was placed", "Tags": ["Date Filter"] },
+        { "ColumnName": "OrderQuantity", "Description": "Units ordered", "Tags": ["Quantity"] },
+        { "ColumnName": "ExpectedDeliveryDate", "Description": "Date the order is expected to arrive", "Tags": ["Date"] },
+        { "ColumnName": "Status", "Description": "Order status: Pending, Shipped, Delivered, or Cancelled", "Tags": ["Status"] },
+        { "ColumnName": "CreatedBy", "Description": "Staff member who placed the order", "ForeignKey": { "Table": "Staffs", "Column": "StaffId" }, "Tags": ["Join Key"] }
+      ],
+      "PrimaryKey": "OrderId",
+      "BusinessRules": [
+        "'Open orders' or 'pending orders' = Status IN ('Pending','Shipped')",
+        "'Overdue orders' = Status != 'Delivered' AND ExpectedDeliveryDate < today",
+        "Do not use this table for demand or forecast totals, only for supply/order status"
+      ],
+      "Synonyms": ["replenishment order", "purchase order", "supply order", "reorder", "restock order"]
+    }
+  ],
+  "GlobalBusinessRules": [
+    {
+      "RuleName": "Total Demand",
+      "Definition": [
+        "Use SalesHistory table",
+        "Calculate SUM(QuantitySold)",
+        "Never use ForecastDetail.ForecastedQuantity for actual demand"
+      ],
+      "WhenToUse": "When the user asks for actual/historical demand or units sold",
+      "Strict": true
+    },
+    {
+      "RuleName": "Total Revenue",
+      "Definition": [
+        "Use SalesHistory table",
+        "Calculate SUM(Revenue)",
+        "Do not recompute Revenue from UnitPrice * QuantitySold, the column is already correct"
+      ],
+      "WhenToUse": "When the user asks for revenue, sales value, or income",
+      "Strict": true
+    },
+    {
+      "RuleName": "Forecast Accuracy",
+      "Definition": [
+        "Use ForecastAccuracy table",
+        "Calculate AVG(MAPE) for accuracy percentage, AVG(Bias) for over/under-forecasting tendency",
+        "Never derive accuracy by manually joining ForecastDetail with SalesHistory"
+      ],
+      "WhenToUse": "When the user asks about forecast accuracy, MAPE, forecast error, or forecast bias",
+      "Strict": true
+    },
+    {
+      "RuleName": "Latest Forecast",
+      "Definition": [
+        "Use ForecastRun to find the row with MAX(RunDate) WHERE Status = 'Completed'",
+        "Join ForecastDetail on that ForecastRunId to get the current forecasted quantities"
+      ],
+      "WhenToUse": "When the user asks for 'the forecast' without naming a specific run or model",
+      "Strict": true
+    },
+    {
+      "RuleName": "Stockout Risk",
+      "Definition": [
+        "Use Inventory table",
+        "Stockout risk = OnHandQuantity < SafetyStock",
+        "Needs reorder = (OnHandQuantity + InTransitQuantity) <= ReorderPoint"
+      ],
+      "WhenToUse": "When the user asks about stockout risk, understocked items, or reorder needs",
+      "Strict": true
+    }
+  ],
+  "MetricSafetyRules": [
+    "NEVER present ForecastDetail.ForecastedQuantity as actual/historical demand",
+    "NEVER manually recompute MAPE, AbsoluteError, or Bias when ForecastAccuracy already has them",
+    "NEVER sum ForecastedQuantity across multiple ForecastRunId values for the same product/period",
+    "Always scope forecast questions to the latest completed ForecastRun unless another run is specified",
+    "Do not double count revenue or demand across channels unless the user asks for a channel breakdown or total across channels"
+  ],
+  "ConceptSynonyms": [
+    { "Concept": "Demand", "Keywords": ["demand", "units sold", "sales volume", "sell-through"], "MapsTo": "Total Demand" },
+    { "Concept": "Revenue", "Keywords": ["revenue", "sales value", "income", "sales revenue"], "MapsTo": "Total Revenue" },
+    { "Concept": "Forecast Accuracy", "Keywords": ["accuracy", "mape", "forecast error", "how good is the forecast"], "MapsTo": "Forecast Accuracy" },
+    { "Concept": "Stockout Risk", "Keywords": ["stockout", "out of stock", "understocked", "low stock", "reorder"], "MapsTo": "Stockout Risk" }
+  ]
+}
